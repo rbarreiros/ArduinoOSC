@@ -66,6 +66,20 @@ namespace osc {
 #endif
         }
 
+        template <typename... Ts>
+        void subscribeMulticast(const IPAddress iface, const IPAddress multicast, const uint16_t port, const String& addr, Ts&&... ts) {
+#if defined(ARDUINOOSC_ENABLE_WIFI) && (defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_RP2040))
+            if (WiFi.getMode() != WIFI_OFF)
+                OscServerManager<S>::getInstance().getMulticastServer(multicast, port, iface).subscribe(addr, std::forward<Ts>(ts)...);
+            else
+                LOG_ERROR(F("WiFi is not enabled. Subscribing OSC failed."));
+#else
+            OscServerManager<S>::getInstance().getMulticastServer(multicast, port, iface).subscribe(addr, std::forward<Ts>(ts)...);
+#endif
+        }
+
+
+
         void parse() {
 #if defined(ARDUINOOSC_ENABLE_WIFI) && (defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_RP2040))
             if (this->isWiFiConnected() || this->isWiFiModeAP()) {
@@ -137,6 +151,20 @@ namespace osc {
 
         template <typename... Ts>
         OscPublishElementRef publish(const String& ip, const uint16_t port, const String& addr, Ts&&... ts) {
+#if defined(ARDUINOOSC_ENABLE_WIFI) && (defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_RP2040))
+            if (WiFi.getMode() != WIFI_OFF)
+                return OscClientManager<S>::getInstance().publish(ip, port, addr, std::forward<Ts>(ts)...);
+            else {
+                LOG_ERROR(F("WiFi is not enabled. Publishing OSC failed."));
+                return nullptr;
+            }
+#else
+            return OscClientManager<S>::getInstance().publish(ip, port, addr, std::forward<Ts>(ts)...);
+#endif
+        }
+
+        template <typename... Ts>
+        OscPublishElementRef publishMulticast(const String &iface, const String& ip, const uint16_t port, const String& addr, Ts&&... ts) {
 #if defined(ARDUINOOSC_ENABLE_WIFI) && (defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_RP2040))
             if (WiFi.getMode() != WIFI_OFF)
                 return OscClientManager<S>::getInstance().publish(ip, port, addr, std::forward<Ts>(ts)...);

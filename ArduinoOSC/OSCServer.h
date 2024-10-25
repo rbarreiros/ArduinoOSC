@@ -187,15 +187,28 @@ namespace osc {
             CallbackMap callbacks;
             const uint16_t port;
             OscMessage* msg_ptr {nullptr};
+            bool is_multicast = false;
+            IPAddress multicast {0};
+            IPAddress iface {0};
 
         public:
             explicit Server(const uint16_t port)
-            : port(port) {
+            : port(port), is_multicast{false} {
                 while (port == PORT_DISCARD) {
                     LOG_ERROR(F("Port #9 is not valid. Please change the server port."));
                     delay(1000);
                 }
             }
+
+            explicit Server(const IPAddress multicast, const uint16_t port, const IPAddress iface)
+            : port{port}, is_multicast{true}, multicast{multicast}, iface{iface}
+            {
+                while (port == PORT_DISCARD) {
+                    LOG_ERROR(F("Port #9 is not valid. Please change the server port."));
+                    delay(1000);
+                }
+            }
+
             Server() {}
 
             template <typename... Ts>
@@ -205,7 +218,9 @@ namespace osc {
             }
 
             bool parse() {
-                auto stream = UdpMapManager<S>::getInstance().getUdp(port);
+                auto stream = (is_multicast) ? UdpMapManager<S>::getInstance().getMulticastUdp(multicast, port, iface) :
+                                               UdpMapManager<S>::getInstance().getUdp(port);
+
                 const size_t size = stream->parsePacket();
                 if (size == 0) return false;
 
@@ -255,6 +270,23 @@ namespace osc {
             Server<S>& getServer(const uint16_t port) {
                 if (server_map.find(port) == server_map.end())
                     server_map.insert(std::make_pair(port, ServerRef<S>(new Server<S>(port))));
+                return *(server_map[port].get());
+            }
+
+            Server<S>& getMulticastServer(const String& multicast, const uint16_t port, const String& iface)
+            {
+                return getMulticastServer(IPAddress(multicast.c_str()), port, IPAddress(iface.c_str()));
+            }
+
+            Server<S>& getMulticastServer(const String& multicast, const uint16_t port, IPAddress iface)
+            {
+                return getMulticastServer(IPAddress(multicast.c_str()), port, iface);
+            }
+
+            Server<S>& getMulticastServer(const IPAddress& multicast, const uint16_t port, const IPAddress& iface)
+            {
+                if (server_map.find(port) == server_map.end())
+                    server_map.insert(std::make_pair(port, ServerRef<S>(new Server<S>(multicast, port, iface))));
                 return *(server_map[port].get());
             }
 

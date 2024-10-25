@@ -58,6 +58,37 @@ namespace osc {
             }
             return udp_map[port];
         }
+
+        UdpRef<S> getMulticastUdp(IPAddress multicast, const uint16_t port, IPAddress iface) 
+        {
+#if ARX_HAVE_LIBSTDCPLUSPLUS >= 201103L  // Have libstdc++11
+            using namespace std;
+#else
+            using namespace arx;
+#endif
+            // use first port for PORT_DISCARD if some udp instances exist
+            if (port == PORT_DISCARD) {
+                if (udp_map.empty()) {
+                    udp_map.insert(std::make_pair(port, UdpRef<S>(new S())));
+                    udp_map[port]->beginMulticast(iface, multicast, port);
+                }
+                return udp_map.begin()->second;
+            }
+
+            if (udp_map.find(port) == udp_map.end()) {
+                // if there is udp listening to port 9, erase it to this port
+                auto udp_discard_ref = udp_map.find(PORT_DISCARD);
+                if (udp_discard_ref != udp_map.end()) {
+                    udp_discard_ref->second->stop();
+                    udp_map.erase(udp_discard_ref);
+                }
+                udp_map.insert(std::make_pair(port, UdpRef<S>(new S())));
+                udp_map[port]->beginMulticast(iface, multicast, port);
+                Serial.println("Starting Multicast UDP Server");
+            }
+            return udp_map[port];
+        }
+
     };
 
 }  // namespace osc
