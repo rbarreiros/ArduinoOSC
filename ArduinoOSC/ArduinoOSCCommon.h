@@ -164,16 +164,16 @@ namespace osc {
         }
 
         template <typename... Ts>
-        OscPublishElementRef publishMulticast(const String &iface, const String& ip, const uint16_t port, const String& addr, Ts&&... ts) {
+        OscPublishElementRef publishMulticast(const IPAddress &iface, const String& ip, const uint16_t port, const String& addr, Ts&&... ts) {
 #if defined(ARDUINOOSC_ENABLE_WIFI) && (defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_RP2040))
             if (WiFi.getMode() != WIFI_OFF)
-                return OscClientManager<S>::getInstance().publish(ip, port, addr, std::forward<Ts>(ts)...);
+                return OscClientManager<S>::getInstance().publishMulticast(iface, ip, port, addr, std::forward<Ts>(ts)...);
             else {
                 LOG_ERROR(F("WiFi is not enabled. Publishing OSC failed."));
                 return nullptr;
             }
 #else
-            return OscClientManager<S>::getInstance().publish(ip, port, addr, std::forward<Ts>(ts)...);
+            return OscClientManager<S>::getInstance().publishMulticast(iface, ip, port, addr, std::forward<Ts>(ts)...);
 #endif
         }
 
