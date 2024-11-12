@@ -117,24 +117,19 @@ namespace osc {
             String ip;
             uint16_t port;
             String addr;
-            IPAddress iface;
             bool is_multicast;
 
             Destination(const Destination& dest)
-            : ip(dest.ip), port(dest.port), addr(dest.addr), iface(dest.iface), is_multicast(dest.is_multicast) {}
+            : ip(dest.ip), port(dest.port), addr(dest.addr), is_multicast(dest.is_multicast) {}
             Destination(Destination&& dest)
-            : ip(std::move(dest.ip)), port(std::move(dest.port)), addr(std::move(dest.addr)), iface(std::move(dest.iface)), is_multicast(std::move(dest.is_multicast)) {}
-            Destination(const String& ip, const uint16_t port, const String& addr)
-            : ip(ip), port(port), addr(addr), iface(), is_multicast(false) {}
-            Destination(const IPAddress& iface, const String& ip, const uint16_t port, const String& addr)
-            : ip(ip), port(port), addr(addr), iface(iface), is_multicast(true) {}
+            : ip(std::move(dest.ip)), port(std::move(dest.port)), addr(std::move(dest.addr)), is_multicast(std::move(dest.is_multicast)) {}
+            Destination(const String& ip, const uint16_t port, const String& addr, bool isMulticast = false)
+            : ip(ip), port(port), addr(addr), is_multicast(isMulticast) {}
             Destination() {}
 
             Destination& operator=(const Destination& dest) {
                 ip = dest.ip;
                 port = dest.port;
-                addr = dest.addr;
-                iface = dest.iface;
                 is_multicast = dest.is_multicast;
                 return *this;
             }
@@ -142,7 +137,6 @@ namespace osc {
                 ip = std::move(dest.ip);
                 port = std::move(dest.port);
                 addr = std::move(dest.addr);
-                iface = std::move(dest.iface);
                 is_multicast = std::move(dest.is_multicast);
                 return *this;
             }
@@ -151,7 +145,7 @@ namespace osc {
                                                                            : (addr < rhs.addr);
             }
             inline bool operator==(const Destination& rhs) const {
-                return (ip == rhs.ip) && (port == rhs.port) && (addr == rhs.addr) && (iface == rhs.iface) && (is_multicast == rhs.is_multicast);
+                return (ip == rhs.ip) && (port == rhs.port) && (addr == rhs.addr) && (is_multicast == rhs.is_multicast);
             }
             inline bool operator!=(const Destination& rhs) const {
                 return !(*this == rhs);
@@ -200,18 +194,19 @@ namespace osc {
                 stream->endPacket();
             }
 
-            void sendMulticast(const String& ip, const uint16_t port, const IPAddress& iface, Message& m)
+            void sendMulticast(const String& ip, const uint16_t port, Message& m)
             {
                 this->writer.init().encode(m);
-                this->sendMulticast(ip, port, iface);
+                this->sendMulticast(ip, port);
             }
 
-            void sendMulticast(const String &ip, const uint16_t port, const IPAddress &iface)
+            void sendMulticast(const String &ip, const uint16_t port)
             {
                 auto stream = UdpMapManager<S>::getInstance().getUdp(local_port);
                 IPAddress ipaddr;
+                ipaddr.fromString(ip);
 
-                stream->beginPacketMulticast(ipaddr.fromString(ip.c_str()), port, WiFi.localIP());
+                stream->beginPacketMulticast(ipaddr, port, WiFi.localIP());
                 stream->write(this->writer.data(), this->writer.size());
                 stream->endPacket();
 
@@ -256,7 +251,7 @@ namespace osc {
             {
                 elem->init(msg, dest.addr);
                 elem->encodeTo(msg);
-                sendMulticast(dest.ip, dest.port, dest.iface, msg);
+                sendMulticast(dest.ip, dest.port, msg);
             }
         };
 
@@ -321,8 +316,8 @@ namespace osc {
                 return publish_impl(ip, port, addr, make_element_ref(value));
             }
 
-            ElementRef publishMulticast(const IPAddress& iface, const String& ip, const uint16_t port, const String& addr, const char* const value) {
-                return publish_impl_multicast(iface, ip, port, addr, make_element_ref(value));
+            ElementRef publishMulticast(const String& ip, const uint16_t port, const String& addr, const char* const value) {
+                return publish_impl_multicast(ip, port, addr, make_element_ref(value));
             }
 
             template <typename T>
@@ -366,8 +361,8 @@ namespace osc {
                 return ref;
             }
 
-            ElementRef publish_impl_multicast(const IPAddress& iface, const String& ip, const uint16_t port, const String& addr, ElementRef ref) {
-                Destination dest {iface, ip, port, addr};
+            ElementRef publish_impl_multicast(const String& ip, const uint16_t port, const String& addr, ElementRef ref) {
+                Destination dest(ip, port, addr, true);
                 dest_map.insert(std::make_pair(dest, ref));
                 return ref;
             }
